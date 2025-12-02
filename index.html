@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le-Hop Christmas Edition</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS for Christmas Game Aesthetics */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; 
+            min-height: 100vh;
+            padding: 0.5rem; 
+        }
+
+        /* Container for the game area, maximizing width */
+        #main-container {
+            width: 100%;
+            max-width: 1600px;
+            margin: auto;
+            display: grid;
+            gap: 1rem; 
+            /* Default Mobile: single column stack */
+            grid-template-areas: 
+                "canvas"
+                "controls"
+                "scores";
+            grid-template-columns: 1fr;
+        }
+        
+        /* Desktop three-column layout: Canvas dominates the center */
+        @media (min-width: 1024px) {
+            #main-container {
+                gap: 2rem;
+                grid-template-columns: 280px 1fr 280px; 
+                grid-template-areas: 
+                    "controls canvas scores";
+            }
+        }
+        
+        /* Assign grid areas */
+        .controls-panel { grid-area: controls; }
+        .canvas-card { grid-area: canvas; }
+        .scores-panel { grid-area: scores; }
+
+        /* Generic Card Styling */
+        .card {
+            background-color: white;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); 
+            border-radius: 1rem;
+            padding: 2rem; /* Retained padding for side panels */
+        }
+        
+        /* Canvas Card Styling: MAXIMIZE SPACE. No padding on the main card body. */
+        .canvas-card {
+            background-color: white;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); 
+            border-radius: 1rem;
+            /* Flex layout to stack header, score, canvas, and footer vertically */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Canvas styling - critical for full screen */
+        #gameCanvas {
+            width: 100%;
+            flex-grow: 1; /* Make canvas fill remaining vertical space */
+            height: auto; 
+            background-color: #a0c4ff; /* Snowy Sky Blue */
+            display: block;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.15);
+            touch-action: none; /* Helps prevent default touch gestures like scrolling/zooming */
+        }
+
+        /* Large, prominent button styling */
+        .game-button {
+            padding: 1rem 2rem;
+            font-weight: 900; 
+            font-size: 1.25rem;
+            border-radius: 1rem;
+            transition: all 0.15s ease-in-out;
+            user-select: none;
+            cursor: pointer;
+            box-shadow: 0 6px #b91c1c; 
+        }
+        .game-button.red-button {
+            background-color: #ef4444; 
+            color: white;
+            box-shadow: 0 6px #b91c1c;
+        }
+        .game-button.red-button:active {
+            box-shadow: 0 0 #b91c1c;
+            transform: translateY(6px);
+        }
+        .game-button.green-button {
+            background-color: #10b981; 
+            color: white;
+            box-shadow: 0 6px #047857;
+        }
+        .game-button.green-button:active {
+            box-shadow: 0 0 #047857;
+            transform: translateY(6px);
+        }
+
+        /* Header font bump */
+        .game-header {
+            font-size: 2.5rem;
+        }
+
+        /* Loading indicator styling */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #10b981;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="main-container">
+        
+        <!-- Left Column: Controls (now only for Avatar) -->
+        <div class="card controls-panel p-4 flex flex-col gap-6">
+            <h2 class="text-2xl font-bold text-gray-800">Your Avatar:</h2>
+
+            <!-- Avatar Preview -->
+            <div id="avatar-preview-container" class="w-20 h-20 bg-gray-200 rounded-full border border-dashed border-gray-400 flex items-center justify-center overflow-hidden">
+                 <span id="avatar-preview-text" class="text-4xl text-gray-600">👤</span>
+                 <img id="avatar-preview-img" class="w-full h-full object-cover hidden" alt="Avatar Preview">
+            </div>
+
+            <!-- Avatar Upload -->
+            <div class="flex flex-col gap-2">
+                <label for="avatar-upload" class="text-gray-700 font-semibold shrink-0 text-base">Upload Avatar:</label>
+                <input type="file" id="avatar-upload" accept="image/*" class="w-full text-base text-gray-500
+                    file:mr-2 file:py-2 file:px-3
+                    file:rounded-lg file:border-0
+                    file:text-sm file:font-semibold
+                    file:bg-red-50 file:text-red-600
+                    hover:file:bg-red-100
+                "/>
+            </div>
+            
+            <p id="jumps-remaining-display" class="text-lg font-bold text-center p-2 bg-red-50 rounded-lg border border-red-200">
+                Jumps: 2
+            </p>
+        </div>
+
+        <!-- Middle Column: Game Canvas, Score, Header, and Hop Button Footer -->
+        <div class="canvas-card canvas-panel">
+            <!-- Header -->
+            <header class="p-6 bg-green-700 text-white rounded-t-lg flex justify-between items-center shrink-0">
+                <div class="flex items-center space-x-3">
+                    <span class="text-4xl">🎄</span>
+                    <h1 class="game-header font-extrabold">Le-Hop Christmas Edition</h1>
+                </div>
+                <span class="text-4xl">🎅</span>
+            </header>
+            
+            <!-- Score Display -->
+            <p id="score-display" class="text-3xl font-extrabold text-center py-4 bg-white text-gray-800 border-b border-gray-200 shrink-0">Score: 0</p>
+            
+            <!-- Game Canvas -->
+            <canvas id="gameCanvas" width="600" height="300"></canvas>
+            
+            <!-- Hop Button Footer (Below the game) -->
+            <div id="game-controls-footer" class="p-4 bg-white rounded-b-lg border-t border-gray-200 shrink-0">
+                <button id="hop-button"
+                    class="game-button red-button w-full py-4">
+                    START / HOP (Single & Double Jump!)
+                </button>
+            </div>
+        </div>
+
+        <!-- Right Column: Game Over Modal & High Scores -->
+        <div class="card scores-panel">
+             <!-- Game Over Message Box -->
+            <div id="game-over-modal" class="hidden bg-red-50 border-l-8 border-red-500 text-red-700 p-6 rounded-xl" role="alert">
+                <p class="font-bold text-2xl mb-3 text-red-800">Game Over!</p>
+                <p id="final-score-text" class="text-xl mt-2">Your final score was: 0</p>
+                
+                <div class="mt-4">
+                    <label for="initials-input" class="block text-base font-semibold text-gray-700">Enter 3 Initials:</label>
+                    <input type="text" id="initials-input" maxlength="3" 
+                           class="mt-2 block w-full border-2 border-gray-300 rounded-lg shadow-md p-3 text-center uppercase text-xl font-mono tracking-widest focus:ring-red-500 focus:border-red-500"
+                           placeholder="ABC">
+                </div>
+
+                <div class="mt-5 flex flex-col gap-3">
+                    <button id="save-score-button"
+                        class="game-button green-button w-full disabled:opacity-50" disabled>
+                        🎁 Save Score
+                    </button>
+                    <button id="restart-button"
+                        class="game-button red-button w-full">
+                        Restart Game
+                    </button>
+                </div>
+            </div>
+            
+            <!-- High Score Board -->
+            <div class="mt-4">
+                <h2 class="text-3xl font-bold text-gray-800 border-b pb-3 mb-3 flex items-center justify-between">
+                    High Scores 🏆 
+                    <span class="text-xl text-red-600 font-mono">Christmas List</span>
+                </h2>
+                <div id="loading-scores" class="flex items-center text-gray-500 hidden">
+                    <div class="loader"></div>
+                    Loading scores...
+                </div>
+                <div id="score-list" class="space-y-3">
+                    <!-- Scores will be injected here -->
+                    <p class="text-gray-500 italic text-base" id="no-scores-msg">No scores recorded yet.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, onSnapshot, collection, query, limit, serverTimestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- Firebase Globals and Setup ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'le-hop-default';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        const SCORE_COLLECTION_PATH = `artifacts/${appId}/public/data/le_hop_christmas_scores`;
+        
+        // Set Firebase Log Level
+        setLogLevel('Debug');
+
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            // 1. Authentication and Initialization
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                } else {
+                    try {
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            await setPersistence(auth, browserSessionPersistence);
+                            await signInAnonymously(auth);
+                        }
+                        userId = auth.currentUser.uid;
+                    } catch (error) {
+                        console.error("Firebase Auth Error:", error);
+                        userId = crypto.randomUUID();
+                    }
+                }
+                isAuthReady = true;
+                console.log("Auth Ready. User ID:", userId);
+                listenForHighScores();
+            });
+        } else {
+            userId = 'guest-' + crypto.randomUUID();
+            isAuthReady = true;
+            console.warn("Firebase configuration not found. Scores will not be saved.");
+        }
+
+        // 2. High Score Listeners and Saving
+        
+        function listenForHighScores() {
+            if (!isAuthReady || !db) return;
+
+            const scoresRef = collection(db, SCORE_COLLECTION_PATH);
+            const q = query(scoresRef, limit(20));
+            
+            const loadingIndicator = document.getElementById('loading-scores');
+            const scoreListEl = document.getElementById('score-list');
+            const noScoresMsg = document.getElementById('no-scores-msg');
+
+            loadingIndicator.classList.remove('hidden');
+
+            onSnapshot(q, (snapshot) => {
+                loadingIndicator.classList.add('hidden');
+                let scores = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    scores.push({ id: doc.id, score: data.score, initials: data.initials || '???', savedUserId: data.userId || 'N/A' });
+                });
+                
+                // Sort scores descending by score
+                scores.sort((a, b) => b.score - a.score);
+                
+                // Limit to top 10 for display
+                scores = scores.slice(0, 10); 
+
+                renderHighScores(scores, scoreListEl, noScoresMsg);
+            }, (error) => {
+                console.error("Error listening to high scores:", error);
+                loadingIndicator.classList.add('hidden');
+            });
+        }
+        
+        function renderHighScores(scores, container, noScoresMsg) {
+            container.innerHTML = '';
+            if (scores.length === 0) {
+                noScoresMsg.classList.remove('hidden');
+                container.appendChild(noScoresMsg);
+                return;
+            }
+            noScoresMsg.classList.add('hidden');
+
+            scores.forEach((s, index) => {
+                const isCurrentUser = s.savedUserId === userId;
+                const item = document.createElement('div');
+                item.className = `flex justify-between items-center p-3 rounded-xl text-xl font-mono 
+                                 ${isCurrentUser ? 'bg-red-100 text-red-800 font-bold border-2 border-red-500' : 'bg-green-50 text-gray-700'}`;
+                item.innerHTML = `
+                    <span class="w-1/6 text-center">${index + 1}.</span>
+                    <span class="w-2/6 uppercase truncate">${s.initials}</span>
+                    <span class="w-3/6 text-right font-bold text-2xl">${s.score}</span>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        async function saveHighScore(score, initials) {
+            if (!db || !userId) {
+                console.warn("Cannot save score: Firebase not ready or user not authenticated.");
+                return;
+            }
+            
+            if (score <= 0 || initials.length !== 3) return;
+
+            try {
+                const scoresRef = collection(db, SCORE_COLLECTION_PATH);
+                await addDoc(scoresRef, {
+                    score: score,
+                    initials: initials.toUpperCase(),
+                    userId: userId,
+                    timestamp: serverTimestamp()
+                });
+                console.log("Score saved successfully:", score, initials);
+                // Disable save button after success
+                saveScoreButton.disabled = true;
+                initialsInput.disabled = true;
+                saveScoreButton.textContent = "Score Saved!";
+            } catch (error) {
+                console.error("Error saving score:", error);
+                saveScoreButton.textContent = "Save Failed (Retry)";
+            }
+        }
+
+        // --- Game Globals ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const hopButton = document.getElementById('hop-button');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const finalScoreText = document.getElementById('final-score-text');
+        const scoreDisplay = document.getElementById('score-display');
+        const restartButton = document.getElementById('restart-button');
+        const avatarUpload = document.getElementById('avatar-upload');
+        const avatarPreviewText = document.getElementById('avatar-preview-text');
+        const avatarPreviewImg = document.getElementById('avatar-preview-img');
+        const initialsInput = document.getElementById('initials-input');
+        const saveScoreButton = document.getElementById('save-score-button');
+        const jumpsRemainingDisplay = document.getElementById('jumps-remaining-display');
+
+        // Emoji list for obstacles
+        const OBSTACLE_EMOJIS = ['🦦', '🎄', '🤶', '🎅', '🧑‍🎄', '🔠'];
+
+        // Game constants (Scale factor remains large at 3.0, but physics adjust to canvas height)
+        const BASE_SCALE_FACTOR = 3.0; 
+        let currentScaleFactor = BASE_SCALE_FACTOR;
+
+        let PLAYER_SIZE; 
+        let GROUND_HEIGHT; 
+        let GRAVITY; 
+        let JUMP_POWER; 
+        let MIN_SPAWN_GAP; 
+        let MAX_INITIAL_GAP; 
+        let MAX_GAP_DECREASE_SCORE_CAP = 100; 
+        const SNOW_COUNT = 100; 
+
+        // Game state
+        let gameActive = false;
+        let score = 0;
+        let speed; 
+        let frame = 0;
+        let lastObstacleTime = 0;
+        let jumpsRemaining = 2; // State for double jump
+        let obstacles = [];
+        let animationFrameId;
+        let snowFlakes = [];
+
+        let playerY = 0;
+        let playerYVelocity = 0;
+        let playerAvatar = null; 
+
+        function getGroundY() {
+            return canvas.height - GROUND_HEIGHT;
+        }
+
+        // --- Helper Classes/Functions ---
+
+        class Player {
+            constructor(x, y, size) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.color = '#ff9f1c'; 
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                
+                if (playerAvatar) {
+                    try {
+                        ctx.drawImage(playerAvatar, this.x, this.y, this.size, this.size);
+                    } catch (e) {
+                        ctx.fillRect(this.x, this.y, this.size, this.size);
+                    }
+                } else {
+                    // Default rectangular player, styled with a scarf color
+                    ctx.fillStyle = '#b91c1c'; // Red Scarf
+                    ctx.fillRect(this.x, this.y + this.size/2, this.size, this.size/2);
+                    ctx.fillStyle = '#ff9f1c'; // Skin tone
+                    ctx.fillRect(this.x, this.y, this.size, this.size/2);
+                }
+            }
+            
+            getCollisionBox() {
+                return {
+                    x: this.x,
+                    y: this.y,
+                    width: this.size,
+                    height: this.size
+                };
+            }
+        }
+
+        class Obstacle {
+            constructor(x, size) {
+                this.x = x;
+                this.y = getGroundY() - size; 
+                this.size = size; // This size acts as both height and font size
+                this.isPassed = false; 
+                // Randomly select an emoji
+                this.emoji = OBSTACLE_EMOJIS[Math.floor(Math.random() * OBSTACLE_EMOJIS.length)];
+            }
+
+            draw() {
+                // Set the font size equal to the obstacle size for drawing the emoji
+                ctx.font = `${this.size}px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'alphabetic'; // Align to the ground line
+                
+                // Draw the emoji, centered on its width and placed on the ground line (getGroundY)
+                ctx.fillText(this.emoji, this.x + this.size / 2, getGroundY());
+            }
+
+            update() {
+                this.x -= speed;
+            }
+            
+            getCollisionBox() {
+                // Collision box is a square based on the size/height of the emoji
+                return {
+                    x: this.x,
+                    y: this.y,
+                    width: this.size,
+                    height: this.size
+                };
+            }
+        }
+        
+        class SnowFlake {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                // Scale radius based on the new scale factor
+                this.radius = Math.random() * 2 * currentScaleFactor / 1.5 + 1; 
+                this.density = Math.random() * 0.5 + 0.1;
+            }
+            update() {
+                this.y += speed * this.density * 0.1; 
+                this.x += Math.sin(frame * 0.05) * 0.2; 
+
+                if (this.y > canvas.height) {
+                    this.y = 0;
+                    this.x = Math.random() * canvas.width;
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+                ctx.fill();
+            }
+        }
+
+        let player;
+
+        // --- Game Logic ---
+
+        function initGame() {
+            const isMobile = window.innerWidth < 1024;
+            const canvasCard = document.querySelector('.canvas-card');
+            
+            if (isMobile) {
+                canvas.width = window.innerWidth - 10; 
+                canvas.height = canvas.width * 0.75; 
+            } else {
+                canvas.width = canvasCard.clientWidth;
+                canvas.height = canvas.width * 0.5;
+            }
+            
+            currentScaleFactor = canvas.height / 300; 
+
+            // Re-calculate game constants based on the new scale factor
+            PLAYER_SIZE = 40 * currentScaleFactor; 
+            GROUND_HEIGHT = 50 * currentScaleFactor; 
+            
+            // ADJUSTED PHYSICS FOR LOWER JUMP HEIGHT
+            GRAVITY = 1.5 * currentScaleFactor; 
+            JUMP_POWER = -25 * currentScaleFactor; 
+            
+            // Obstacle spacing constants
+            MIN_SPAWN_GAP = 80 * currentScaleFactor; // Smallest distance between spawning
+            MAX_INITIAL_GAP = 220 * currentScaleFactor; // Starting largest distance
+            
+            speed = 8 * currentScaleFactor / 3; 
+
+            const currentGroundY = getGroundY();
+
+            // Setup player
+            const initialPlayerY = currentGroundY - PLAYER_SIZE;
+            player = new Player(PLAYER_SIZE, initialPlayerY, PLAYER_SIZE);
+            
+            // Game State Resets
+            score = 0;
+            frame = 0;
+            lastObstacleTime = 0;
+            jumpsRemaining = 2; // Reset jumps
+            playerYVelocity = 0;
+            obstacles = [];
+            playerY = initialPlayerY; 
+            
+            // Initialize Snowflakes 
+            snowFlakes = [];
+            for (let i = 0; i < SNOW_COUNT; i++) {
+                snowFlakes.push(new SnowFlake());
+            }
+
+            // UI Resets
+            scoreDisplay.textContent = 'Score: 0';
+            jumpsRemainingDisplay.textContent = `Jumps: ${jumpsRemaining}`;
+            gameOverModal.classList.add('hidden');
+            hopButton.textContent = 'START / HOP (Single & Double Jump!)';
+            initialsInput.value = '';
+            saveScoreButton.disabled = true;
+            initialsInput.disabled = false;
+            saveScoreButton.textContent = "🎁 Save Score";
+
+            // Initial Draw
+            drawScene();
+        }
+        
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            ctx.fillStyle = '#a0c4ff'; // Snowy Sky Blue
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const currentGroundY = getGroundY();
+
+            // Draw Ground (White/Snowy texture)
+            ctx.fillStyle = '#ffffff'; 
+            ctx.fillRect(0, currentGroundY, canvas.width, GROUND_HEIGHT);
+            
+            // Draw a subtle line for the path
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 4; // Thicker line
+            ctx.beginPath();
+            ctx.moveTo(0, currentGroundY);
+            ctx.lineTo(canvas.width, currentGroundY);
+            ctx.stroke();
+
+            // Draw Snowflakes
+            snowFlakes.forEach(f => f.draw());
+
+            // Draw objects
+            if (player) {
+                player.draw();
+            }
+            obstacles.forEach(o => o.draw());
+        }
+
+        function startGame() {
+            if (gameActive) return;
+            gameActive = true;
+            hopButton.textContent = 'HOP (Spacebar or Tap Screen)';
+            gameOverModal.classList.add('hidden');
+            gameLoop();
+        }
+        
+        function hop() {
+            if (!gameActive) {
+                startGame();
+                return;
+            }
+
+            // Check if jumps are available (2 when grounded, 1 when mid-air)
+            if (jumpsRemaining > 0) {
+                jumpsRemaining--;
+                playerYVelocity = JUMP_POWER; // Apply the jump force
+                jumpsRemainingDisplay.textContent = `Jumps: ${jumpsRemaining}`;
+            }
+        }
+
+        function createObstacle() {
+            // Obstacle size is smaller for easier jumping. Max height is 35*scale, min is 20*scale
+            const obstacleSize = Math.floor(Math.random() * 15 * currentScaleFactor) + 20 * currentScaleFactor; 
+            const x = canvas.width;
+            obstacles.push(new Obstacle(x, obstacleSize));
+        }
+
+        function checkCollision(box1, box2) {
+            return (
+                box1.x < box2.x + box2.width &&
+                box1.x + box1.width > box2.x &&
+                box1.y < box2.y + box2.height &&
+                box1.y + box1.height > box2.y
+            );
+        }
+
+        function gameLoop() {
+            if (!gameActive) {
+                cancelAnimationFrame(animationFrameId);
+                return;
+            }
+
+            // 1. Update
+            frame++;
+            
+            // Player vertical movement
+            playerYVelocity += GRAVITY;
+            playerY += playerYVelocity;
+            
+            const currentGroundY = getGroundY();
+
+            // Check if player lands on the ground
+            if (playerY + PLAYER_SIZE >= currentGroundY) {
+                // Reset to ground level and replenish jumps
+                playerYVelocity = 0;
+                playerY = currentGroundY - PLAYER_SIZE;
+                
+                // Only reset jumps if we were not already grounded (prevents continuous reset spam)
+                if (jumpsRemaining < 2) {
+                    jumpsRemaining = 2; 
+                    jumpsRemainingDisplay.textContent = `Jumps: ${jumpsRemaining}`;
+                }
+            }
+            player.y = playerY;
+
+            // --- Obstacle Spawning (Dynamic Rate) ---
+            
+            // Calculate score factor (0 to 1) based on score up to the cap
+            const scoreFactor = Math.min(score, MAX_GAP_DECREASE_SCORE_CAP) / MAX_GAP_DECREASE_SCORE_CAP;
+            
+            // Calculate the total gap reduction possible (Initial Max - Min Spawn)
+            const maxReduction = MAX_INITIAL_GAP - MIN_SPAWN_GAP;
+            
+            // Dynamic Max Gap: starts at MAX_INITIAL_GAP and decreases towards MIN_SPAWN_GAP
+            const dynamicMaxGap = MAX_INITIAL_GAP - (maxReduction * scoreFactor);
+
+            const timeSinceLastObstacle = frame - lastObstacleTime;
+            
+            // Randomly choose a gap between the fixed minimum and the dynamic maximum
+            const spawnGap = Math.floor(Math.random() * (dynamicMaxGap - MIN_SPAWN_GAP + 1)) + MIN_SPAWN_GAP;
+
+            if (timeSinceLastObstacle > spawnGap) {
+                createObstacle();
+                lastObstacleTime = frame;
+            }
+
+            // Update obstacles (movement and cleanup)
+            obstacles.forEach(o => o.update());
+            snowFlakes.forEach(f => f.update());
+            
+            // --- SCORING LOGIC ---
+            obstacles.forEach(o => {
+                if (!o.isPassed && o.x + o.getCollisionBox().width < player.x) {
+                    score++;
+                    o.isPassed = true;
+                    scoreDisplay.textContent = `Score: ${score}`;
+                }
+            });
+            
+            obstacles = obstacles.filter(o => o.x + o.size > 0);
+
+            // Collision Check
+            const playerBox = player.getCollisionBox();
+            for (const o of obstacles) {
+                if (checkCollision(playerBox, o.getCollisionBox())) {
+                    endGame();
+                    return;
+                }
+            }
+
+            // 2. Draw
+            drawScene();
+
+            // 3. Loop
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            gameActive = false;
+            cancelAnimationFrame(animationFrameId);
+            hopButton.textContent = 'Restart';
+
+            // Show Game Over Modal
+            finalScoreText.textContent = `Your final score was: ${score}`;
+            gameOverModal.classList.remove('hidden');
+
+            // Set up listener for initials input
+            initialsInput.focus();
+        }
+
+        // --- Event Listeners and UI ---
+
+        // 1. Input/Control listeners
+        hopButton.addEventListener('click', hop);
+        restartButton.addEventListener('click', () => {
+            initGame();
+            startGame();
+        });
+
+        // Keyboard support (Spacebar or Up Arrow for hop)
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.key === 'ArrowUp') {
+                e.preventDefault(); 
+                hop();
+            }
+        });
+        
+        // Touch support on canvas (Prevents zoom!)
+        // The { passive: false } is essential to allow preventDefault() to work correctly on touchstart.
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            hop(); 
+        }, { passive: false }); 
+
+
+        // Initials Input Validation & Save Button Enable
+        initialsInput.addEventListener('input', (e) => {
+            const val = e.target.value.toUpperCase();
+            e.target.value = val;
+            // Enable save button only if exactly 3 characters are entered
+            saveScoreButton.disabled = val.length !== 3;
+        });
+
+        // Save Score Button Handler
+        saveScoreButton.addEventListener('click', () => {
+            const initials = initialsInput.value.trim().toUpperCase();
+            if (initials.length === 3) {
+                saveHighScore(score, initials);
+            }
+        });
+
+
+        // 2. Avatar Upload
+        avatarUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        playerAvatar = img;
+                        avatarPreviewImg.src = event.target.result;
+                        avatarPreviewImg.classList.remove('hidden');
+                        avatarPreviewText.classList.add('hidden');
+
+                        if (!gameActive) {
+                             initGame();
+                             drawScene();
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                playerAvatar = null;
+                avatarPreviewImg.classList.add('hidden');
+                avatarPreviewText.classList.remove('hidden');
+            }
+        });
+        
+        // 3. Initialization on Window Load
+        window.onload = function () {
+            initGame(); 
+        }
+
+        // Handle resize for responsiveness
+        window.addEventListener('resize', initGame);
+
+    </script>
+</body>
+</html>
+
